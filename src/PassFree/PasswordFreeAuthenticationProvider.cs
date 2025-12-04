@@ -5,15 +5,15 @@ using Microsoft.Extensions.Logging;
 
 namespace PassFree;
 
-public class PasswordlessAuthenticationProvider(
+public class PasswordFreeAuthenticationProvider(
     TimeProvider                                clock,
     IDataProtectionProvider                     dataProtectionProvider,
-    ILogger<PasswordlessAuthenticationProvider> logger)
+    ILogger<PasswordFreeAuthenticationProvider> logger)
 {
     private static readonly MailAddress NullUser = new("null@example.com");
 
     private readonly IDataProtector _dataProtector =
-        dataProtectionProvider.CreateProtector("passfree-passwordless-auth");
+        dataProtectionProvider.CreateProtector("passfree-auth");
 
     public (string AuthToken, string CorrelationToken) GenerateTokens(
         MailAddress user,
@@ -39,7 +39,7 @@ public class PasswordlessAuthenticationProvider(
     /// <param name="authTokenString">The auth token as a data protected string.</param>
     /// <param name="correlationTokenString">The correlation token as a data protected string.</param>
     /// <returns>A TokenValidationResult. If successful, also the user's MailAddress.</returns>
-    public (PasswordLessAuthenticaionTokenValidationResult ValidatioResult, MailAddress user) ValidateTokens(
+    public (PassFreeAuthenticaionTokenValidationResult ValidatioResult, MailAddress user) ValidateTokens(
         string authTokenString,
         string correlationTokenString)
     {
@@ -53,18 +53,18 @@ public class PasswordlessAuthenticationProvider(
             // Correlation identifiers must match
             if (authToken.CorrelationId != correlationToken.CorrelationId)
             {
-                return (PasswordLessAuthenticaionTokenValidationResult.CorrelationMismatch, NullUser);
+                return (PassFreeAuthenticaionTokenValidationResult.CorrelationMismatch, NullUser);
             }
 
             // ValidUntil must greater than current time.
             return authToken.ValidUntil < clock.GetUtcNow().UtcDateTime ?
-                (PasswordLessAuthenticaionTokenValidationResult.Expired, NullUser) :
-                (PasswordLessAuthenticaionTokenValidationResult.Success, new MailAddress(authToken.EmailAddress));
+                (PassFreeAuthenticaionTokenValidationResult.Expired, NullUser) :
+                (PassFreeAuthenticaionTokenValidationResult.Success, new MailAddress(authToken.EmailAddress));
         }
         catch (Exception ex)
         {
             logger.LogError(ex, ex.Message);
-            return (PasswordLessAuthenticaionTokenValidationResult.Error, NullUser);
+            return (PassFreeAuthenticaionTokenValidationResult.Error, NullUser);
         }
     }
 

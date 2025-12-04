@@ -1,3 +1,5 @@
+using System.Net.Mail;
+
 namespace PassFree;
 
 public interface IPassFreeService
@@ -5,6 +7,9 @@ public interface IPassFreeService
     Task<AuthenticationResult> AuthenticateAsync(LoginRequest request);
     Task<RegistrationOptions> GetRegistrationOptionsAsync(string username);
     Task<RegistrationResult> CompleteRegistrationAsync(RegistrationRequest request);
+    
+    Task<bool> IsAuthorizedToLogin(MailAddress userAddress) => Task.FromResult(true);
+    Task SendLoginEmail(MailAddress userAddress, string loginLink, TimeSpan validFor, CancellationToken none) => Task.CompletedTask; 
 }
 
 public record LoginRequest(string Username, string CredentialId, byte[] Signature);

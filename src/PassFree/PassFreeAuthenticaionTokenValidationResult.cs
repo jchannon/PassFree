@@ -1,6 +1,6 @@
 ﻿namespace PassFree;
 
-public enum PasswordLessAuthenticaionTokenValidationResult
+public enum PassFreeAuthenticaionTokenValidationResult
 {
     Success,
     CorrelationMismatch,

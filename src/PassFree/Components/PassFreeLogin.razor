@@ -7,7 +7,8 @@
 @inject IHttpContextAccessor HttpContextAccessor;
 @inject IOptions<PassFreeOptions> Options
 @inject NavigationManager Navigation;
-@inject PasswordlessAuthenticationProvider PasswordlessAuthenticationProvider;
+@inject PasswordFreeAuthenticationProvider PasswordFreeAuthenticationProvider;
+@inject IPassFreeService PassFreeService;
 
 <div class="passfree-login">
     <h2>@Options.Value.PageTitle</h2>
@@ -32,11 +33,10 @@
 
     @if (LoginStatus == LoginStatus.LoginLinkSent)
     {
-        <div class="text-center"
-             data-test="login-link-sent">
-            <p>We have sent you a login link.</p>
-            <p>Please check your inbox and click the link to login.</p>
-            <p>
+        <div class="login-link-sent">
+            <p class="text">We have sent you a login link.</p>
+            <p class="text">Please check your inbox and click the link to login.</p>
+            <p class="text">
                 Wrong email or no email received?
                 <a href="@Options.Value.DefaultRedirectPath"
                    class="link">Try again.</a>
@@ -46,26 +46,27 @@
 
     @if (LoginStatus == LoginStatus.LoginFailed)
     {
-        <p data-test="login-failed-text"
-           class="text-center">Login failed. This could be because your area not authorized, or your login link expired,
-            or you are trying to log in from another device or browser.</p>
-        <p class="text-center">
-            <a href="@Options.Value.DefaultRedirectPath"
-               class="btn btn-primary">Try again.</a>
-        </p>
+        <div class="login-failed">
+            <p class="text">Login failed. This could be because you are not authorized, or your login link
+                expired,
+                or you are trying to log in from another device or browser.</p>
+            <p class="text">
+                <a href="@Options.Value.DefaultRedirectPath"
+                   class="link">Try again.</a>
+            </p>
+        </div>
     }
 
     @if (LoginStatus == LoginStatus.LoginSucceeded)
     {
-        <div class="text-center"
+        <div class="login-succeeded"
              x-data="loginCountdown()"
              x-init="init()">
-            <h1 class="text-2xl mb-5">Login Succeeded.</h1>
-            <p x-text="displayText"></p>
+            <h3 class="text">Login Succeeded.</h3>
+            <p class="text" x-text="displayText"></p>
             <em>
                 If you are not redirected, or want to navigate quicker, please click
-                <a data-test="login-redirect-link"
-                   href="@Options.Value.SuccessRedirectPath"
+                <a href="@Options.Value.SuccessRedirectPath"
                    class="link">here.</a>
             </em>
         </div>
@@ -109,14 +110,16 @@
 
     [SupplyParameterFromQuery] private string? Status { get; set; }
 
-    public LoginStatus LoginStatus { get; set; }
+    private LoginStatus LoginStatus { get; set; }
 
     [SupplyParameterFromQuery] public string? AuthToken { get; set; }
 
 
     protected override async Task OnInitializedAsync()
     {
-        LoginStatus = !string.IsNullOrWhiteSpace(Status) ? Enum.Parse<LoginStatus>(Status) : LoginStatus.NotAuthenticated;
+        LoginStatus = !string.IsNullOrWhiteSpace(Status)
+            ? Enum.Parse<LoginStatus>(Status)
+            : LoginStatus.NotAuthenticated;
 
         if (HttpContextAccessor.HttpContext?.User.Identity?.IsAuthenticated == true)
         {
@@ -124,64 +127,62 @@
             return;
         }
 
-        if (LoginStatus == LoginStatus.NotAuthenticated)
-        {
-            return;
-        }
-
-        if (LoginStatus == LoginStatus.LoginLinkSent && string.IsNullOrWhiteSpace(AuthToken))
+        if (ShouldSkipProcessing())
         {
             return;
         }
 
         if (LoginStatus == LoginStatus.LoginLinkSent && !string.IsNullOrWhiteSpace(AuthToken))
         {
-            var request = HttpContextAccessor.HttpContext?.Request!;
-            // A login link is being followed
-            // Get correlation cookie
-            if (!request.Cookies.TryGetValue(Options.Value.CorrelationIdCookieKey, out var correlationIdToken))
-            {
-                LoginStatus = LoginStatus.LoginFailed;
-                return;
-            }
-
-            // Validate auth and correlation tokens.
-            var (validationResult, user) = PasswordlessAuthenticationProvider.ValidateTokens(AuthToken, correlationIdToken);
-            if (validationResult != PasswordLessAuthenticaionTokenValidationResult.Success)
-            {
-                LoginStatus = LoginStatus.LoginFailed;
-                return;
-            }
-
-            // Tokens are valid, check authorization
-            var isAuthorized = await IsAuthorizedToLogin(user);
-            if (!isAuthorized)
-            {
-                LoginStatus = LoginStatus.LoginFailed;
-                return;
-            }
-
-            // Sign them in
-            var email = user.Address;
-            var claims = new[]
-            {
-                new Claim("email", email)
-            };
-
-            var claimsIdentity = new ClaimsIdentity(claims, "email");
-            var claimsPrincipal = new ClaimsPrincipal(claimsIdentity);
-            await HttpContextAccessor.HttpContext!.SignInAsync(claimsPrincipal);
-            LoginStatus = LoginStatus.LoginSucceeded;
-            HttpContextAccessor.HttpContext!.Response.Cookies.Delete(Options.Value.CorrelationIdCookieKey);
+            await ProcessLoginAsync();
         }
     }
 
-    private async Task<bool> IsAuthorizedToLogin(MailAddress mailAddress)
+    private bool ShouldSkipProcessing()
     {
-        //check database
-        await Task.Delay(10);
-        return true;
+        return LoginStatus is LoginStatus.NotAuthenticated
+                   or LoginStatus.RequestEmail
+                   or LoginStatus.LoginSucceeded
+                   or LoginStatus.LoginFailed
+               || (LoginStatus == LoginStatus.LoginLinkSent && string.IsNullOrWhiteSpace(AuthToken));
     }
 
+    private async Task ProcessLoginAsync()
+    {
+        var request = HttpContextAccessor.HttpContext?.Request!;
+
+        if (!request.Cookies.TryGetValue(Options.Value.CorrelationIdCookieKey, out var correlationIdToken))
+        {
+            LoginStatus = LoginStatus.LoginFailed;
+            return;
+        }
+
+        var (validationResult, user) = PasswordFreeAuthenticationProvider.ValidateTokens(AuthToken, correlationIdToken);
+        if (validationResult != PassFreeAuthenticaionTokenValidationResult.Success)
+        {
+            LoginStatus = LoginStatus.LoginFailed;
+            return;
+        }
+
+        var isAuthorized = await PassFreeService.IsAuthorizedToLogin(user);
+        if (!isAuthorized)
+        {
+            LoginStatus = LoginStatus.LoginFailed;
+            return;
+        }
+
+        await SignInUserAsync(user);
+    }
+
+    private async Task SignInUserAsync(MailAddress user)
+    {
+        var claims = new[] { new Claim("email", user.Address) };
+        var claimsIdentity = new ClaimsIdentity(claims, "email");
+        var claimsPrincipal = new ClaimsPrincipal(claimsIdentity);
+
+        await HttpContextAccessor.HttpContext!.SignInAsync(claimsPrincipal);
+        LoginStatus = LoginStatus.LoginSucceeded;
+        HttpContextAccessor.HttpContext!.Response.Cookies.Delete(Options.Value.CorrelationIdCookieKey);
+    }
 
 }

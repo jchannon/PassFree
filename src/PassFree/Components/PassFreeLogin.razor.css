@@ -1,0 +1,44 @@
+.passfree-login{
+    
+}
+
+.passfree-login .login-link-sent {
+}
+
+.passfree-login .login-link-sent .text {
+    text-align: center;
+}
+
+.passfree-login .login-link-sent .link{
+
+}
+
+.passfree-login .login-failed {
+}
+
+.passfree-login .login-failed .text {
+    text-align: center;
+}
+
+.passfree-login .login-failed .link{
+
+}
+
+.passfree-login .login-succeeded {
+}
+
+.passfree-login .login-succeeded h3{
+    text-align: center;
+}
+
+.passfree-login .login-succeeded em{
+    text-align: center;
+}
+
+.passfree-login .login-succeeded .text{
+    text-align: center;
+}
+
+.passfree-login .login-succeeded .link{
+    text-align: center;
+}

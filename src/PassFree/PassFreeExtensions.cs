@@ -31,8 +31,8 @@ public class PassFreeOptions
 
 public static class PassFreeExtensions
 {
-    public static IServiceCollection AddPassFree(this IServiceCollection services,
-        Action<PassFreeOptions>? configureOptions = null)
+    public static IServiceCollection AddPassFree<T>(this IServiceCollection services,
+        Action<PassFreeOptions>? configureOptions = null) where T : class, IPassFreeService
     {
         // Configure options
         if (configureOptions != null)
@@ -45,9 +45,10 @@ public static class PassFreeExtensions
         }
 
         // Register core services
-        services.AddScoped<IPassFreeService, PassFreeService>();
+        //services.AddScoped<IPassFreeService, PassFreeService>();
+        services.AddSingleton<IPassFreeService, T>();
         services.AddSingleton(TimeProvider.System);
-        services.AddSingleton<PasswordlessAuthenticationProvider>();
+        services.AddSingleton<PasswordFreeAuthenticationProvider>();
 
         // Add HttpContextAccessor for navigation
         services.AddHttpContextAccessor();
@@ -71,7 +72,8 @@ public static class PassFreeExtensions
         //builder.MapGet(options.LoginPath, () => "Login page");
         builder.MapPost(options.LoginPath,
             async (HttpContext httpContext, [FromForm] LoginModel model,
-                PasswordlessAuthenticationProvider passwordlessAuthenticationProvider, ILogger<PassFree> logger) =>
+                PasswordFreeAuthenticationProvider passwordFreeAuthenticationProvider, ILogger<PassFree> logger,
+                IPassFreeService passFreeService) =>
             {
                 var status = LoginStatus.NotAuthenticated;
                 UriBuilder uriBuilder;
@@ -82,7 +84,7 @@ public static class PassFreeExtensions
                     return Results.Redirect(uriBuilder.Uri.PathAndQuery);
                 }
 
-                var isAuthorizedToLogin = await IsAuthorizedToLogin(userAddress);
+                var isAuthorizedToLogin = await passFreeService.IsAuthorizedToLogin(userAddress);
                 if (!isAuthorizedToLogin)
                 {
                     uriBuilder = new UriBuilder
@@ -93,11 +95,11 @@ public static class PassFreeExtensions
                 var validFor = TimeSpan.FromMinutes(5);
                 var correlationId = Guid.NewGuid();
                 var (authToken, correlationToken) =
-                    passwordlessAuthenticationProvider.GenerateTokens(userAddress, validFor, correlationId);
+                    passwordFreeAuthenticationProvider.GenerateTokens(userAddress, validFor, correlationId);
 
                 var loginLink = GenerateLoginLink(httpContext, authToken, options);
                 logger.LogDebug(loginLink);
-                await SendLoginEmail(userAddress, loginLink, validFor, CancellationToken.None);
+                await passFreeService.SendLoginEmail(userAddress, loginLink, validFor, CancellationToken.None);
 
                 SetCorrelationIdCookie(httpContext, options, correlationToken);
 
@@ -111,18 +113,6 @@ public static class PassFreeExtensions
         return builder;
     }
 
-    private static async Task SendLoginEmail(MailAddress userAddress, string loginLink, TimeSpan validFor,
-        CancellationToken none)
-    {
-        await Task.Delay(10);
-        return;
-    }
-
-    private static async Task<bool> IsAuthorizedToLogin(MailAddress userAddress)
-    {
-        await Task.Delay(10);
-        return true;
-    }
 
     private static string GenerateLoginLink(HttpContext httpContext, string authToken, PassFreeOptions options)
     {
