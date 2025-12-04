@@ -44,23 +44,9 @@ app.Run();
 
 public class PassFreeService : IPassFreeService
 {
-    public Task<AuthenticationResult> AuthenticateAsync(LoginRequest request)
-    {
-        throw new NotImplementedException();
-    }
-
-    public Task<RegistrationOptions> GetRegistrationOptionsAsync(string username)
-    {
-        throw new NotImplementedException();
-    }
-
-    public Task<RegistrationResult> CompleteRegistrationAsync(RegistrationRequest request)
-    {
-        throw new NotImplementedException();
-    }
-
     public Task<bool> IsAuthorizedToLogin(MailAddress userAddress)
     {
+        //check database if user exists
         return Task.FromResult(true);
     }
 
