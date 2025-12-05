@@ -54,7 +54,7 @@ public class MyPassFreeService : IPassFreeService
 }
 ```
 
-### 2. Configure Services in Program.cs
+### 2. Configure Services in Blazor Program.cs
 
 ```csharp
 var builder = WebApplication.CreateBuilder(args);
@@ -89,15 +89,56 @@ app.MapRazorComponents<App>();
 app.Run();
 ```
 
+### 2. Configure Services in MVC Program.cs
+
+```csharp
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddAuthorization();
+
+builder.Services
+    .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(options => { options.LoginPath = "/login"; });
+
+// Add services to the container.
+builder.Services.AddControllersWithViews();
+builder.Services.AddPassFree<PassFreeService>();
+var app = builder.Build();
+
+app.UseHttpsRedirection();
+app.UseRouting();
+
+app.UseAuthentication();
+app.UseAuthorization();
+app.UseAntiforgery();
+
+app.MapStaticAssets();
+
+app.MapPassFree();
+
+app.MapControllerRoute(
+        name: "default",
+        pattern: "{controller=Home}/{action=Index}/{id?}")
+    .WithStaticAssets();
+
+
+app.Run();
+```
+
 ### 3. Use the PassFreeLogin Component
 
-Create a login page using the built-in component:
+Create a login page using the built-in component (Blazor):
 
 ```razor
 @page "/login"
 @using PassFree.Components
 
 <PassFreeLogin />
+```
+
+Create a login page using the built-in component (MVC View):
+```razor
+<component type="typeof(PassFree.Components.PassFreeLogin)" render-mode="ServerPrerendered" />
 ```
 
 That's it! The component handles the entire authentication flow.
