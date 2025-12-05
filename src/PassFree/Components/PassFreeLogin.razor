@@ -59,51 +59,48 @@
 
     @if (LoginStatus == LoginStatus.LoginSucceeded)
     {
-        <div class="login-succeeded"
-             x-data="loginCountdown()"
-             x-init="init()">
+        <div class="login-succeeded" id="login-succeeded">
             <h3 class="text">Login Succeeded.</h3>
-            <p class="text" x-text="displayText"></p>
+            <p class="text" id="displayText"></p>
             <em>
                 If you are not redirected, or want to navigate quicker, please click
                 <a href="@Options.Value.SuccessRedirectPath"
                    class="link">here.</a>
             </em>
         </div>
-    }
-</div>
-<script defer src="https://cdn.jsdelivr.net/npm/@@alpinejs/csp@3.15.0/dist/cdn.min.js"
-        integrity="sha384-/RME6pSq0zKJyBifgNWPb3I8kZckbbyQzvFaUqSyfcw3anF1SmYxV5XUPlkZxTBZ"
-        crossorigin="anonymous"></script>
 
-<script>
-    function loginCountdown() {
-        return {
-            redirectCount: 4,
-            get displayText() {
-                return `You will be redirected to the home page in ${this.redirectCount} seconds.`;
-            },
-            init() {
-                const startTime = Date.now();
-                const duration = 4000;
+        <script>
+            (function () {
+                let container = document.getElementById('login-succeeded');
+                if (!container) {
+                    return;
+                }
 
-                const update = () => {
-                    const elapsed = Date.now() - startTime;
-                    const remaining = Math.max(0, Math.ceil((duration - elapsed) / 1000));
-                    this.redirectCount = remaining;
+                let textEl = document.getElementById('displayText');
+                let durationMs = 4000; // 4 seconds
+                let start = performance.now();
 
-                    if (remaining > 0) {
+                function update(now) {
+                    let elapsed = now - start;
+                    let remainingMs = Math.max(0, durationMs - elapsed);
+                    let seconds = Math.ceil(remainingMs / 1000);
+                    if (textEl) {
+                        textEl.textContent = 'You will be redirected to the home page in ' + seconds + ' seconds.';
+                    }
+
+                    if (remainingMs > 0) {
                         requestAnimationFrame(update);
                     } else {
                         window.location.href = '@Options.Value.SuccessRedirectPath';
                     }
-                };
+                }
 
                 requestAnimationFrame(update);
-            }
-        }
+            })();
+        </script>
     }
-</script>
+</div>
+
 
 @code {
     [SupplyParameterFromQuery] private string? ErrorMessage { get; set; }
